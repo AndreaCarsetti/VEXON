@@ -1,0 +1,66 @@
+name: vexon
+description: "VEXON — dashboard gaming kiosk-mode con libreria giochi unificata e monitoraggio hardware"
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.9.0
+  window_manager: ^0.5.0
+  launch_at_startup: ^0.5.0
+  http: ^1.2.0
+  win32: '>=5.5.0 <6.0.0'
+  ffi: ^2.1.0
+  audioplayers: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/splash/
+    - assets/audio/
+
+# Configurazione flutter_launcher_icons — genera automaticamente tutte le
+# icone piattaforma da un'unica sorgente ad alta risoluzione.
+# Esegui: dart run flutter_launcher_icons
+#
+# NOTA: per Windows uso "app_icon_black_bg.png" (sfondo nero pieno, non
+# trasparente) invece della versione trasparente. La generazione .ico su
+# Windows a volte appiattisce la trasparenza su bianco invece di lasciarla
+# trasparente — usare uno sfondo nero "cotto dentro" elimina il problema
+# alla radice, invece di dipendere da come il tool gestisce l'alpha.
+flutter_launcher_icons:
+  image_path: "assets/icons/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon_black_bg.png"
+    icon_size: 256
+  android:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+
+# Configurazione flutter_native_splash — genera lo splash screen nativo.
+# NOTA: questo pacchetto supporta SOLO Android, iOS e Web — non esiste
+# supporto nativo per Windows/desktop. Per Windows, lo splash è gestito
+# direttamente in Flutter (vedi lib/screens/splash_screen.dart), mostrato
+# come prima schermata dell'app invece che come vero splash nativo
+# pre-caricamento. Questa sezione resta utile solo se in futuro aggiungerai
+# anche una build Android.
+# Esegui: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#0A0A0C"
+  image: assets/icons/logo.png
+  android: true
+  ios: false
+  web: false

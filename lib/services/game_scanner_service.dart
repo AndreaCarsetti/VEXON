@@ -1,0 +1,134 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import '../models/game.dart';
+
+/// Scansiona le librerie di gioco installate sul PC.
+///
+/// Supporta Steam (file .acf) ed Epic Games (file .item, formato JSON).
+/// GOG può essere aggiunto come implementazione parallela con la stessa
+/// interfaccia — vedi TODO in fondo al file.
+class GameScannerService {
+  /// Percorsi comuni dove Steam viene installato su Windows.
+  static const List<String> _commonSteamPaths = [
+    r'C:\Program Files (x86)\Steam',
+    r'C:\Program Files\Steam',
+  ];
+
+  /// Percorso fisso dei manifest di Epic Games — a differenza di Steam,
+  /// Epic non lo rende configurabile, è sempre qui.
+  static const String _epicManifestsPath =
+      r'C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests';
+
+  Future<List<Game>> scanAll() async {
+    final games = <Game>[];
+    games.addAll(await _scanSteam());
+    games.addAll(await _scanEpic());
+    // TODO: games.addAll(await _scanGog());
+    return games;
+  }
+
+  Future<List<Game>> _scanSteam() async {
+    final games = <Game>[];
+
+    String? steamPath;
+    for (final path in _commonSteamPaths) {
+      if (await Directory(path).exists()) {
+        steamPath = path;
+        break;
+      }
+    }
+    if (steamPath == null) return games;
+
+    final steamAppsDir = Directory(p.join(steamPath, 'steamapps'));
+    if (!await steamAppsDir.exists()) return games;
+
+    // Steam può avere librerie aggiuntive su altri dischi, elencate in
+    // libraryfolders.vdf. Per la v1 scansioniamo solo la libreria di default;
+    // il parsing di libraryfolders.vdf è il prossimo step naturale.
+    final acfFiles = steamAppsDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.acf'));
+
+    for (final file in acfFiles) {
+      final content = await file.readAsString();
+      final appId = _extractAcfValue(content, 'appid');
+      final name = _extractAcfValue(content, 'name');
+      final installDir = _extractAcfValue(content, 'installdir');
+
+      if (appId == null || name == null) continue;
+
+      games.add(Game(
+        id: 'steam_$appId',
+        title: name,
+        executablePath: installDir != null
+            ? p.join(steamAppsDir.path, 'common', installDir)
+            : '',
+        source: GameSource.steam,
+        // Steam grid cover: si può scaricare da CDN Steam usando appId,
+        // oppure leggere da appcache/librarycache se presente in locale.
+        coverImagePath: null,
+      ));
+    }
+
+    return games;
+  }
+
+  /// Estrae un valore semplice da un file .acf (formato VDF di Valve),
+  /// es: "name"		"Half-Life 2"
+  String? _extractAcfValue(String content, String key) {
+    final pattern = RegExp('"$key"\\s+"([^"]+)"', caseSensitive: false);
+    final match = pattern.firstMatch(content);
+    return match?.group(1);
+  }
+
+  Future<List<Game>> _scanEpic() async {
+    final games = <Game>[];
+
+    final manifestsDir = Directory(_epicManifestsPath);
+    if (!await manifestsDir.exists()) return games;
+
+    final itemFiles = manifestsDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.item'));
+
+    for (final file in itemFiles) {
+      try {
+        final content = await file.readAsString();
+        final json = jsonDecode(content) as Map<String, dynamic>;
+
+        // Gli strumenti di sviluppo Unreal Engine hanno bIsApplication a
+        // false — non sono giochi, li saltiamo.
+        if (json['bIsApplication'] == false) continue;
+
+        final displayName = json['DisplayName'] as String?;
+        final installLocation = json['InstallLocation'] as String?;
+        final launchExecutable = json['LaunchExecutable'] as String?;
+        final appName = json['AppName'] as String?; // ID interno Epic
+
+        if (displayName == null || installLocation == null) continue;
+
+        games.add(Game(
+          id: 'epic_${appName ?? displayName}',
+          title: displayName,
+          executablePath: launchExecutable != null
+              ? p.join(installLocation, launchExecutable)
+              : installLocation,
+          source: GameSource.epic,
+          // Le cover di Epic richiedono di interrogare il loro catalogo
+          // (CatalogNamespace + CatalogItemId presenti nel manifest) —
+          // non c'è un CDN diretto come per Steam, da implementare a parte.
+          coverImagePath: null,
+        ));
+      } catch (_) {
+        // Un singolo manifest corrotto/malformato non deve bloccare la
+        // scansione degli altri — lo saltiamo e proseguiamo.
+        continue;
+      }
+    }
+
+    return games;
+  }
+}
