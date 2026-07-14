@@ -6,14 +6,16 @@ import 'splash_screen.dart';
 
 /// Sequenza di avvio HORROR INTENSE: 2 occhi rossi che si aprono nel buio,
 /// poi 4 creature ombra dai 4 angoli che convergono VIOLENTEMENTE verso il
-/// centro con sussulti e lampi rossi, prima di una dissolvenza violenta che
-/// rivela il logo VEXON in un bagliore bianco.
+/// centro con sussulti e lampi rossi, prima di un impatto che frattura lo
+/// schermo — crepe che si propagano dal centro nel buio, poi il logo VEXON
+/// emerge attraverso di esse.
 /// 
 /// Fase 1 (0-0.15): Occhi che si aprono lentamente dal nero
 /// Fase 2 (0.15-0.55): Creature convergono con movimento aggressivo e sussulti,
 ///                      lampi rossi random
 /// Fase 3 (0.55-0.75): Creature si contraggono verso il centro, lampi intensi
-/// Fase 4 (0.75-1.0): Dissolvenza violenta bianca + logo emerge
+/// Fase 4 (0.75-1.0): Impatto rosso breve → crepe che si propagano nel buio →
+///                     il logo emerge attraverso di esse
 class BootSequenceScreen extends StatefulWidget {
   const BootSequenceScreen({super.key});
 
@@ -25,6 +27,8 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final List<double> _flashTimes;
+  late final List<List<Offset>> _crackBranches;
+  late final List<double> _crackDelays;
 
   static const _totalDuration = Duration(milliseconds: 2600);
   static const _eyesEnd = 0.15;
@@ -37,6 +41,7 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     super.initState();
     _controller = AnimationController(vsync: this, duration: _totalDuration);
     _generateFlashes();
+    _generateCracks();
     HorrorAudioService.initialize();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -51,6 +56,43 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
       12,
       (_) => 0.15 + rnd.nextDouble() * 0.6, // Lampi dopo gli occhi
     );
+  }
+
+  /// Genera le crepe una sola volta, con seed fisso — il pattern di
+  /// frattura resta identico ad ogni avvio invece di essere diverso ogni
+  /// volta. Ogni crepa è una sequenza di punti in "unità di raggio"
+  /// (centro = 0, bordo schermo ≈ 1), così si adatta a qualunque
+  /// risoluzione scalandola per le dimensioni reali solo al momento del
+  /// disegno.
+  void _generateCracks() {
+    final rnd = Random(13);
+    const branchCount = 9;
+
+    _crackBranches = List.generate(branchCount, (i) {
+      final baseAngle = (i / branchCount) * 2 * pi + (rnd.nextDouble() - 0.5) * 0.4;
+      return _buildCrackBranch(rnd, baseAngle);
+    });
+
+    // Partenze leggermente scaglionate: non tutte le crepe crescono
+    // insieme, danno l'idea di una frattura che si diffonde nel tempo.
+    _crackDelays = List.generate(branchCount, (_) => rnd.nextDouble() * 0.35);
+  }
+
+  List<Offset> _buildCrackBranch(Random rnd, double baseAngle) {
+    final points = <Offset>[Offset.zero];
+    var angle = baseAngle;
+    var radius = 0.0;
+    final segments = 5 + rnd.nextInt(3);
+
+    for (var s = 0; s < segments; s++) {
+      // La direzione "deriva" ad ogni segmento — è quello che dà l'aspetto
+      // spezzato/irregolare tipico di una crepa nel vetro, invece di una
+      // linea retta.
+      angle += (rnd.nextDouble() - 0.5) * 0.6;
+      radius += 0.12 + rnd.nextDouble() * 0.09;
+      points.add(Offset(cos(angle) * radius, sin(angle) * radius));
+    }
+    return points;
   }
 
   /// Schedulerà i suoni ai tempi di animazione corretti
@@ -74,7 +116,11 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: Duration.zero,
-        pageBuilder: (_, __, ___) => const SplashScreen(),
+        // Il logo è già comparso attraverso le crepe nella fase finale di
+        // questo boot — SplashScreen deve mostrarlo già a piena opacità
+        // (niente secondo fade-in da zero), altrimenti si vedrebbe
+        // sparire di scatto e ricomparire.
+        pageBuilder: (_, __, ___) => const SplashScreen(startVisible: true),
       ),
     );
   }
@@ -343,34 +389,124 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     );
   }
 
-  /// Fase finale: dissolvenza bianca violenta + logo emerge
+  /// Fase finale: un breve impatto rosso "innesca" la frattura, poi le
+  /// crepe si propagano dal centro nel buio (niente pagina bianca — il
+  /// buio profondo resta protagonista), e infine il logo emerge
+  /// attraverso di esse. Il logo compare UNA SOLA VOLTA qui: SplashScreen
+  /// subito dopo lo mostra già a piena opacità (`startVisible: true`),
+  /// senza rifare da capo un fade-in che prima causava un effetto
+  /// "compare, sparisce, ricompare" indesiderato.
   Widget _buildFinalPhase(double t, Size size) {
-    final whiteFlash = Curves.easeOut.transform(t);
-    final logoOpacity = Curves.easeOut.transform((t - 0.2).clamp(0.0, 1.0));
-    final logoScale =
-        0.6 + 0.4 * Curves.easeOut.transform((t - 0.2).clamp(0.0, 1.0));
+    // Impatto: lampo rosso rapido che si dissolve subito, come l'istante
+    // in cui lo schermo "si rompe".
+    final impact = t < 0.12 ? (1 - Curves.easeIn.transform(t / 0.12)) : 0.0;
+
+    // Le crepe crescono da 0.05 a 0.55 del tempo di questa fase, poi
+    // restano ferme, già formate, mentre il logo emerge.
+    final crackT = Curves.easeOut.transform(((t - 0.05) / 0.5).clamp(0.0, 1.0));
+
+    // Il logo emerge dopo che le crepe sono quasi complete.
+    final logoT = Curves.easeOut.transform(((t - 0.55) / 0.45).clamp(0.0, 1.0));
+
+    final crackScale = size.shortestSide * 0.9; // pixel per unità di raggio
 
     return Stack(
+      fit: StackFit.expand,
       children: [
-        // Flash bianco aggressivo
-        ColoredBox(
-          color: Colors.white.withOpacity(whiteFlash * 0.9),
+        const ColoredBox(color: Colors.black), // buio profondo di base
+        if (impact > 0)
+          ColoredBox(color: VexonColors.brandRed.withOpacity(impact * 0.55)),
+        CustomPaint(
+          painter: _CrackPainter(
+            branches: _crackBranches,
+            branchDelays: _crackDelays,
+            growth: crackT,
+            scale: crackScale,
+          ),
         ),
-
-        // Logo emerge dal bagliore
         Center(
           child: Opacity(
-            opacity: logoOpacity,
+            opacity: logoT,
             child: Transform.scale(
-              scale: logoScale,
-              child: Image.asset(
-                'assets/icons/logo_splash.png',
-                width: 260,
-              ),
+              scale: 0.85 + logoT * 0.15,
+              child: Image.asset('assets/icons/logo_splash.png', width: 260),
             ),
           ),
         ),
       ],
     );
   }
+}
+
+/// Disegna le crepe che si propagano dal centro verso l'esterno, come
+/// vetro che si rompe. [growth] (0-1) controlla quanta parte di ognuna è
+/// già stata disegnata, usando `PathMetrics` per un'estensione fluida
+/// della linea invece di farla comparire di scatto per intero.
+class _CrackPainter extends CustomPainter {
+  final List<List<Offset>> branches;
+  final List<double> branchDelays;
+  final double growth;
+  final double scale;
+
+  _CrackPainter({
+    required this.branches,
+    required this.branchDelays,
+    required this.growth,
+    required this.scale,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    for (var i = 0; i < branches.length; i++) {
+      final delay = branchDelays[i];
+      final localGrowth = ((growth - delay) / (1 - delay)).clamp(0.0, 1.0);
+      if (localGrowth <= 0) continue;
+
+      final points = branches[i];
+      final path = Path()
+        ..moveTo(center.dx + points[0].dx * scale, center.dy + points[0].dy * scale);
+      for (final p in points.skip(1)) {
+        path.lineTo(center.dx + p.dx * scale, center.dy + p.dy * scale);
+      }
+
+      final metrics = path.computeMetrics().toList();
+      if (metrics.isEmpty) continue;
+      final totalLength = metrics.fold<double>(0, (sum, m) => sum + m.length);
+      final targetLength = totalLength * localGrowth;
+
+      var drawn = 0.0;
+      for (final metric in metrics) {
+        if (drawn >= targetLength) break;
+        final remaining = targetLength - drawn;
+        final extractLength = remaining < metric.length ? remaining : metric.length;
+        final partial = metric.extractPath(0, extractLength);
+
+        // Bagliore rosso dietro la crepa...
+        final glowPaint = Paint()
+          ..color = VexonColors.brandRed.withOpacity(0.7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+        canvas.drawPath(partial, glowPaint);
+
+        // ...più una linea chiara e nitida sopra, per il taglio vero e proprio.
+        final linePaint = Paint()
+          ..color = Colors.white.withOpacity(0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        canvas.drawPath(partial, linePaint);
+
+        drawn += metric.length;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrackPainter oldDelegate) => true;
 }
