@@ -5,8 +5,9 @@ import '../theme/vexon_colors.dart';
 class GameCard extends StatefulWidget {
   final Game game;
   final VoidCallback onLaunch;
+  final VoidCallback? onLongPress;
 
-  const GameCard({super.key, required this.game, required this.onLaunch});
+  const GameCard({super.key, required this.game, required this.onLaunch, this.onLongPress});
 
   @override
   State<GameCard> createState() => _GameCardState();
@@ -32,6 +33,7 @@ class _GameCardState extends State<GameCard> {
       }),
       child: GestureDetector(
         onTap: widget.onLaunch,
+        onLongPress: widget.onLongPress,
         onTapDown: (_) => setState(() => _pressing = true),
         onTapUp: (_) => setState(() => _pressing = false),
         onTapCancel: () => setState(() => _pressing = false),

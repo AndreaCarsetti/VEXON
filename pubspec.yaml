@@ -16,6 +16,8 @@ dependencies:
   win32: '>=5.5.0 <6.0.0'
   ffi: ^2.1.0
   audioplayers: ^6.1.0
+  file_picker: ^8.1.2  # selezione file nativa per l'aggiunta manuale dei giochi
+  path_provider: ^2.1.0  # cartella dati app per salvare i giochi aggiunti manualmente
 
 dev_dependencies:
   flutter_test:

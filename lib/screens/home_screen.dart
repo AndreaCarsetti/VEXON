@@ -3,7 +3,9 @@ import '../models/game.dart';
 import '../services/game_boost_service.dart';
 import '../services/game_scanner_service.dart';
 import '../services/hardware_monitor_service.dart';
+import '../services/manual_games_store.dart';
 import '../theme/vexon_colors.dart';
+import '../widgets/add_manual_game_dialog.dart';
 import '../widgets/game_boost_transition.dart';
 import '../widgets/game_card.dart';
 import '../widgets/hardware_hud.dart';
@@ -21,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scanner = GameScannerService();
+  final _manualGamesStore = ManualGamesStore();
   late final HardwareMonitorService _hardwareService;
 
   List<Game> _games = [];
@@ -59,12 +62,60 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadGames() async {
-    final games = await _scanner.scanAll();
+    final scannedGames = await _scanner.scanAll();
+    final manualGames = await _manualGamesStore.load();
     if (mounted) {
       setState(() {
-        _games = games;
+        _games = [...scannedGames, ...manualGames];
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _openAddManualGameDialog() async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (_) => const AddManualGameDialog(),
+    );
+    if (result == null) return;
+
+    await _manualGamesStore.add(
+      title: result['title']!,
+      executablePath: result['executablePath']!,
+    );
+    await _loadGames();
+  }
+
+  Future<void> _confirmRemoveManualGame(Game game) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: VexonColors.surface,
+        title: const Text('Rimuovere questo gioco?', style: TextStyle(color: VexonColors.textPrimary)),
+        content: Text(
+          '"${game.title}" verrà rimosso dalla libreria (solo la voce in VEXON, non i file del gioco).',
+          style: const TextStyle(color: VexonColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla', style: TextStyle(color: VexonColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: VexonColors.critical,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Rimuovi'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _manualGamesStore.remove(game.id);
+      await _loadGames();
     }
   }
 
@@ -104,6 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
         gameModeActive: _gameModeActive,
         onGameModeToggle: _toggleGameMode,
         onSearchChanged: (q) => setState(() => _searchQuery = q),
+        onAddGame: _openAddManualGameDialog,
       ),
       body: ParticleBackground(
         child: Stack(
@@ -132,6 +184,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   // TODO: lanciare l'eseguibile del gioco
                                   // (Process.start su game.executablePath)
                                 },
+                                // La rimozione (tenendo premuto) ha senso
+                                // solo per le voci aggiunte manualmente —
+                                // quelle rilevate da Steam/Epic restano
+                                // gestite dai rispettivi launcher.
+                                onLongPress: game.source == GameSource.manual
+                                    ? () => _confirmRemoveManualGame(game)
+                                    : null,
                               ),
                             );
                           },
@@ -179,7 +238,7 @@ class _EmptyLibraryState extends StatelessWidget {
           Text(
             hasQuery
                 ? 'Nessun gioco trovato con questo nome'
-                : 'Nessun gioco rilevato.\nVerifica che Steam o Epic Games siano installati nel percorso predefinito.',
+                : 'Nessun gioco rilevato automaticamente.\nSe hai Steam o Epic Games installati su un percorso non standard,\npuoi aggiungere i giochi manualmente dal pulsante in alto.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: VexonColors.textSecondary, fontSize: 14),
           ),

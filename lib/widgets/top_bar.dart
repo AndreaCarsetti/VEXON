@@ -5,12 +5,14 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool gameModeActive;
   final ValueChanged<bool> onGameModeToggle;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onAddGame;
 
   const TopBar({
     super.key,
     required this.gameModeActive,
     required this.onGameModeToggle,
     required this.onSearchChanged,
+    required this.onAddGame,
   });
 
   @override
@@ -61,9 +63,64 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: 16),
+          _AddGameButton(onPressed: onAddGame),
+          const SizedBox(width: 12),
           _GameModeToggle(active: gameModeActive, onToggle: onGameModeToggle),
         ],
+      ),
+    );
+  }
+}
+
+/// Pulsante per aggiungere un gioco manualmente, sempre visibile. Grigio
+/// neutro di proposito — deve restare in secondo piano rispetto al pulsante
+/// Game Mode, che è quello che vogliamo risalti visivamente.
+class _AddGameButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _AddGameButton({required this.onPressed});
+
+  @override
+  State<_AddGameButton> createState() => _AddGameButtonState();
+}
+
+class _AddGameButtonState extends State<_AddGameButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _hovering
+                ? Color.alphaBlend(Colors.white.withOpacity(0.06), VexonColors.surfaceElevated)
+                : VexonColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, size: 16, color: VexonColors.textSecondary),
+              SizedBox(width: 6),
+              Text(
+                'Aggiungi gioco',
+                style: TextStyle(
+                  color: VexonColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

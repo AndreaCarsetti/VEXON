@@ -40,39 +40,72 @@ class GameScannerService {
     }
     if (steamPath == null) return games;
 
-    final steamAppsDir = Directory(p.join(steamPath, 'steamapps'));
-    if (!await steamAppsDir.exists()) return games;
+    // Scansiona TUTTE le librerie Steam, non solo quella di default —
+    // fondamentale se i giochi sono installati su un disco diverso da C:,
+    // molto comune. Prima veniva scansionata solo la cartella
+    // steamapps dentro l'installazione principale di Steam.
+    final libraryPaths = await _findSteamLibraryPaths(steamPath);
 
-    // Steam può avere librerie aggiuntive su altri dischi, elencate in
-    // libraryfolders.vdf. Per la v1 scansioniamo solo la libreria di default;
-    // il parsing di libraryfolders.vdf è il prossimo step naturale.
-    final acfFiles = steamAppsDir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.acf'));
+    for (final libraryPath in libraryPaths) {
+      final steamAppsDir = Directory(p.join(libraryPath, 'steamapps'));
+      if (!await steamAppsDir.exists()) continue;
 
-    for (final file in acfFiles) {
-      final content = await file.readAsString();
-      final appId = _extractAcfValue(content, 'appid');
-      final name = _extractAcfValue(content, 'name');
-      final installDir = _extractAcfValue(content, 'installdir');
+      final acfFiles = steamAppsDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.acf'));
 
-      if (appId == null || name == null) continue;
+      for (final file in acfFiles) {
+        final content = await file.readAsString();
+        final appId = _extractAcfValue(content, 'appid');
+        final name = _extractAcfValue(content, 'name');
+        final installDir = _extractAcfValue(content, 'installdir');
 
-      games.add(Game(
-        id: 'steam_$appId',
-        title: name,
-        executablePath: installDir != null
-            ? p.join(steamAppsDir.path, 'common', installDir)
-            : '',
-        source: GameSource.steam,
-        // Steam grid cover: si può scaricare da CDN Steam usando appId,
-        // oppure leggere da appcache/librarycache se presente in locale.
-        coverImagePath: null,
-      ));
+        if (appId == null || name == null) continue;
+
+        games.add(Game(
+          id: 'steam_$appId',
+          title: name,
+          executablePath: installDir != null
+              ? p.join(steamAppsDir.path, 'common', installDir)
+              : '',
+          source: GameSource.steam,
+          // Steam grid cover: si può scaricare da CDN Steam usando appId,
+          // oppure leggere da appcache/librarycache se presente in locale.
+          coverImagePath: null,
+        ));
+      }
     }
 
     return games;
+  }
+
+  /// Trova tutte le cartelle libreria Steam, inclusa quella di default e
+  /// quelle aggiuntive su altri dischi, leggendo
+  /// steamapps/libraryfolders.vdf. Il parsing è volutamente semplice (una
+  /// regex sui campi "path", non un vero parser VDF) — sufficiente per
+  /// questo scopo ed è lo stesso approccio usato da molti tool community.
+  Future<List<String>> _findSteamLibraryPaths(String steamPath) async {
+    final paths = <String>{steamPath}; // la libreria di default c'è sempre
+
+    final vdfFile = File(p.join(steamPath, 'steamapps', 'libraryfolders.vdf'));
+    if (await vdfFile.exists()) {
+      try {
+        final content = await vdfFile.readAsString();
+        final matches = RegExp(r'"path"\s*"([^"]+)"').allMatches(content);
+        for (final match in matches) {
+          final rawPath = match.group(1);
+          if (rawPath == null) continue;
+          // Nel file i backslash sono doppi (escape VDF): "D:\\Giochi"
+          paths.add(rawPath.replaceAll(r'\\', r'\'));
+        }
+      } catch (_) {
+        // Se il file esiste ma è malformato, ripieghiamo comunque sulla
+        // sola libreria di default invece di far fallire tutto.
+      }
+    }
+
+    return paths.toList();
   }
 
   /// Estrae un valore semplice da un file .acf (formato VDF di Valve),
