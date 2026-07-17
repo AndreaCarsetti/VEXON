@@ -61,6 +61,19 @@ class _SplashScreenState extends State<SplashScreen>
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 1 - fadeOutStart),
     ]).animate(_controller);
 
+    // Se il logo arriva già visibile dal boot (startVisible), posizioniamo
+    // il controller ESATTAMENTE al punto in cui il fade-in finisce, PRIMA
+    // che venga disegnato il primo frame. Senza questo, il primo frame di
+    // questa schermata partirebbe comunque da opacità 0 (valore iniziale
+    // di default del controller) finché `forward()` non parte nel
+    // postFrameCallback qui sotto — creando un frame (o più) in cui il
+    // logo sparisce di scatto subito dopo essere apparso nel boot, prima
+    // di ricomparire. Impostando il valore subito, il primissimo frame
+    // mostra già piena opacità, senza alcun vuoto percepibile.
+    if (widget.startVisible) {
+      _controller.value = fadeInEnd;
+    }
+
     // IMPORTANTE: su Windows la finestra nativa diventa visibile prima che
     // Flutter disegni il primo frame. Se l'animazione partisse subito in
     // initState, il tempo "morto" tra la creazione della finestra e il
@@ -68,6 +81,9 @@ class _SplashScreenState extends State<SplashScreen>
     // facendo apparire il logo già parzialmente/totalmente opaco al primo
     // frame visibile. Aspettiamo il primo frame effettivamente disegnato
     // prima di far partire il fade-in, così l'utente lo vede per intero.
+    // (Per startVisible questo non è più il problema principale — il
+    // valore è già corretto da subito — ma lo teniamo comunque per
+    // coerenza e perché non costa nulla.)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.forward().whenComplete(_goToHome);
     });
