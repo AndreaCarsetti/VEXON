@@ -2,24 +2,32 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/horror_audio_service.dart';
 import '../theme/vexon_colors.dart';
-import 'splash_screen.dart';
+import 'home_screen.dart';
 
 /// Sequenza di avvio "accensione": scintille ember (la stessa estetica già
 /// usata in `particle_background.dart` e nel cursore personalizzato) che
 /// partono dai bordi dello schermo e convergono verso il centro, andando a
 /// formare il contorno della V del logo. Un lampo le "accende",
-/// trasformandole nel logo vero e proprio, che si assesta con un bagliore
-/// stabile prima di passare allo splash.
+/// trasformandole nel logo vero e proprio, che resta fermo un momento e
+/// poi sfuma verso la home.
 ///
 /// A differenza dei tentativi precedenti (CRT, horror, terremoto, Matrix),
 /// questa sequenza usa lo STESSO linguaggio visivo già presente nel resto
 /// dell'app — niente estetica nuova introdotta apposta per il boot.
 ///
-/// Fase 1 (0-62%): le scintille convergono dai bordi verso il contorno
-///                 della V
-/// Fase 2 (62-75%): lampo di accensione, dissolvenza incrociata verso il
-///                  logo reale
-/// Fase 3 (75-100%): il logo resta fermo con un bagliore che pulsa piano
+/// IMPORTANTE: tutta la sequenza — convergenza, accensione, attesa e
+/// dissolvenza finale — vive in UN SOLO controller/widget, che alla fine
+/// passa direttamente alla home. Prima passava per una `SplashScreen`
+/// separata con un proprio controller: il cambio tra i due widget, anche
+/// se pensato per essere impercettibile, poteva creare un frame in cui il
+/// logo spariva di scatto e ricompariva. Con tutto in un'unica animazione
+/// continua quel rischio sparisce alla radice.
+///
+/// Fase 1 (convergenza): le scintille convergono dai bordi verso il
+///                       contorno della V
+/// Fase 2 (accensione): lampo, dissolvenza incrociata verso il logo reale
+/// Fase 3 (attesa): il logo resta fermo, fisso, senza bagliori pulsanti
+/// Fase 4 (uscita): dissolvenza verso il nero, poi passa alla home
 class BootSequenceScreen extends StatefulWidget {
   const BootSequenceScreen({super.key});
 
@@ -47,9 +55,11 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
   late final List<_Ember> _embers;
   bool _soundPlayed = false;
 
-  static const _totalDuration = Duration(milliseconds: 3400);
-  static const _convergeEnd = 0.62;
-  static const _igniteEnd = 0.75;
+  static const _totalDuration = Duration(milliseconds: 5200);
+  static const _convergeEndMs = 2100;
+  static const _igniteEndMs = 2550;
+  static const _holdEndMs = 4550; // il logo resta fermo fino a qui
+  // da _holdEndMs a fine (5200ms): dissolvenza verso il nero
 
   // Box (in px, relativo al centro schermo) dove si forma il contorno
   // della V — dimensioni scelte per restare vicine a come apparirà poi il
@@ -70,7 +80,7 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     // visibile prima che Flutter disegni il primo frame; farlo dopo
     // un'attesa asincrona rischia di lasciare l'app ferma su schermo nero.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.forward().whenComplete(_goToSplash);
+      _controller.forward().whenComplete(_goToHome);
     });
   }
 
@@ -126,19 +136,21 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
 
   void _checkAudioCue() {
     final elapsedMs = _controller.value * _totalDuration.inMilliseconds;
-    final igniteMs = _convergeEnd * _totalDuration.inMilliseconds;
-    if (!_soundPlayed && elapsedMs >= igniteMs) {
+    if (!_soundPlayed && elapsedMs >= _convergeEndMs) {
       _soundPlayed = true;
       HorrorAudioService.playLogoImpact();
     }
   }
 
-  void _goToSplash() {
+  void _goToHome() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: Duration.zero,
-        pageBuilder: (_, __, ___) => const SplashScreen(startVisible: true),
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (_, __, ___) => const HomeScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }
@@ -149,10 +161,10 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     super.dispose();
   }
 
-  double _interval(double t, double start, double end) {
-    if (t <= start) return 0;
-    if (t >= end) return 1;
-    return (t - start) / (end - start);
+  double _intervalMs(double elapsedMs, double startMs, double endMs) {
+    if (elapsedMs <= startMs) return 0;
+    if (elapsedMs >= endMs) return 1;
+    return (elapsedMs - startMs) / (endMs - startMs);
   }
 
   @override
@@ -162,26 +174,31 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
-          final t = _controller.value;
+          final elapsedMs = _controller.value * _totalDuration.inMilliseconds;
 
-          final convergeT =
-              Curves.easeOut.transform(_interval(t, 0.0, _convergeEnd));
-          final emberOpacity =
-              1 - Curves.easeIn.transform(_interval(t, _convergeEnd, _igniteEnd));
+          final convergeT = Curves.easeOut
+              .transform(_intervalMs(elapsedMs, 0, _convergeEndMs.toDouble()));
+          final emberOpacity = 1 -
+              Curves.easeIn.transform(
+                  _intervalMs(elapsedMs, _convergeEndMs.toDouble(), _igniteEndMs.toDouble()));
 
           // Il lampo d'accensione: sale rapido e si dissolve.
-          final ignitePhase = _interval(t, _convergeEnd, _convergeEnd + 0.06);
+          final ignitePhase = _intervalMs(
+              elapsedMs, _convergeEndMs.toDouble(), (_convergeEndMs + 200).toDouble());
           final igniteFlash = ignitePhase > 0 && ignitePhase < 1
               ? sin(ignitePhase * pi) // sale e scende in una curva morbida
               : 0.0;
 
-          // Il logo reale sfuma dentro subito dopo l'accensione, e da lì
-          // resta visibile con un lieve bagliore che pulsa piano.
-          final logoOpacity =
-              Curves.easeOut.transform(_interval(t, _convergeEnd, _igniteEnd));
-          final steadyGlow = t > _igniteEnd
-              ? 0.5 + 0.5 * sin((t - _igniteEnd) * 6)
-              : 0.0;
+          // Il logo reale sfuma dentro subito dopo l'accensione...
+          final logoFadeIn = Curves.easeOut.transform(
+              _intervalMs(elapsedMs, _convergeEndMs.toDouble(), _igniteEndMs.toDouble()));
+          // ...resta fermo, fisso, per tutta l'attesa...
+          // ...poi sfuma verso il nero prima di passare alla home. Niente
+          // bagliore pulsante: resta fermo e stabile, come richiesto.
+          final logoFadeOut = 1 -
+              Curves.easeIn.transform(_intervalMs(
+                  elapsedMs, _holdEndMs.toDouble(), _totalDuration.inMilliseconds.toDouble()));
+          final logoOpacity = logoFadeIn * logoFadeOut;
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -225,19 +242,7 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
                     Center(
                       child: Opacity(
                         opacity: logoOpacity,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: VexonColors.brandRed
-                                    .withOpacity(0.35 + steadyGlow * 0.25),
-                                blurRadius: 40 + steadyGlow * 20,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset('assets/icons/logo_splash.png', width: 300),
-                        ),
+                        child: Image.asset('assets/icons/logo_splash.png', width: 300),
                       ),
                     ),
                 ],
