@@ -70,7 +70,26 @@ class _GameCardState extends State<GameCard> {
                     children: [
                       Expanded(
                         child: widget.game.coverImagePath != null
-                            ? Image.asset(widget.game.coverImagePath!, fit: BoxFit.cover)
+                            ? Image.network(
+                                widget.game.coverImagePath!,
+                                fit: BoxFit.cover,
+                                // Copertina non ancora scaricata: placeholder
+                                // silenzioso invece di uno spinner — con
+                                // decine di card assieme uno spinner per
+                                // ognuna è più fastidioso che utile.
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return Container(color: VexonColors.surfaceElevated);
+                                },
+                                // Copertina assente sul CDN (404) o nessuna
+                                // connessione: stesso placeholder usato per
+                                // i giochi senza coverImagePath.
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: VexonColors.surfaceElevated,
+                                  child: const Icon(Icons.videogame_asset,
+                                      color: VexonColors.textSecondary, size: 40),
+                                ),
+                              )
                             : Container(
                                 color: VexonColors.surfaceElevated,
                                 child: const Icon(Icons.videogame_asset,

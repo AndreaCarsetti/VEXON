@@ -10,6 +10,13 @@ class Game {
   final GameSource source;
   final DateTime? lastPlayed;
 
+  /// AppID Steam (solo per giochi source == steam) — serve per costruire
+  /// l'URL della cover sul CDN e per lanciare il gioco tramite protocollo
+  /// steam://rungameid/<appid> invece di eseguire direttamente il binario
+  /// nella cartella d'installazione (che spesso non funziona con giochi
+  /// che usano DRM o anticheat legati al client Steam).
+  final String? steamAppId;
+
   const Game({
     required this.id,
     required this.title,
@@ -17,6 +24,7 @@ class Game {
     required this.source,
     this.coverImagePath,
     this.lastPlayed,
+    this.steamAppId,
   });
 }
 

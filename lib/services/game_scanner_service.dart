@@ -70,9 +70,14 @@ class GameScannerService {
               ? p.join(steamAppsDir.path, 'common', installDir)
               : '',
           source: GameSource.steam,
-          // Steam grid cover: si può scaricare da CDN Steam usando appId,
-          // oppure leggere da appcache/librarycache se presente in locale.
-          coverImagePath: null,
+          // Cover "verticale" ufficiale (la stessa mostrata nella libreria
+          // di Steam) servita dal CDN pubblico Steam — non richiede alcuna
+          // autenticazione, solo l'appId. Se un gioco non ha questa
+          // immagine (rara per titoli molto vecchi/minori), Steam CDN
+          // risponde 404 e la GameCard mostra comunque il placeholder.
+          coverImagePath:
+              'https://cdn.cloudflare.steamstatic.com/steam/apps/$appId/library_600x900.jpg',
+          steamAppId: appId,
         ));
       }
     }

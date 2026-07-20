@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import '../models/game.dart';
 import '../services/game_boost_service.dart';
 import '../services/game_scanner_service.dart';
@@ -119,6 +121,45 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Avvia un gioco. Per Steam usa il protocollo steam://rungameid/<appid>
+  /// invece di eseguire direttamente il binario nella cartella
+  /// d'installazione: molti giochi Steam richiedono di passare dal client
+  /// (DRM, anticheat, overlay, achievements) e lanciarli "a mano" spesso
+  /// non funziona o li avvia senza queste funzionalità. Per Epic e per i
+  /// giochi aggiunti manualmente, invece, executablePath è già un percorso
+  /// diretto all'eseguibile, quindi lo lanciamo così com'è.
+  Future<void> _launchGame(Game game) async {
+    try {
+      if (game.source == GameSource.steam && game.steamAppId != null) {
+        // 'start' è un comando interno di cmd.exe, non un eseguibile: va
+        // invocato tramite cmd /c. La stringa vuota dopo start è il titolo
+        // della finestra (richiesto quando l'URL contiene ':').
+        await Process.start(
+          'cmd',
+          ['/c', 'start', '', 'steam://rungameid/${game.steamAppId}'],
+          mode: ProcessStartMode.detached,
+        );
+        return;
+      }
+
+      if (game.executablePath.isEmpty) {
+        throw const FileSystemException('Percorso eseguibile mancante');
+      }
+
+      await Process.start(
+        game.executablePath,
+        [],
+        mode: ProcessStartMode.detached,
+        workingDirectory: p.dirname(game.executablePath),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossibile avviare "${game.title}": $e')),
+      );
+    }
+  }
+
   void _toggleGameMode(bool active) {
     setState(() {
       _gameModeActive = active;
@@ -180,10 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               index: i,
                               child: GameCard(
                                 game: game,
-                                onLaunch: () {
-                                  // TODO: lanciare l'eseguibile del gioco
-                                  // (Process.start su game.executablePath)
-                                },
+                                onLaunch: () => _launchGame(game),
                                 // La rimozione (tenendo premuto) ha senso
                                 // solo per le voci aggiunte manualmente —
                                 // quelle rilevate da Steam/Epic restano
