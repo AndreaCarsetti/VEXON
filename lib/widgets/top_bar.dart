@@ -6,6 +6,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<bool> onGameModeToggle;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onAddGame;
+  final VoidCallback onCleanRam;
 
   const TopBar({
     super.key,
@@ -13,6 +14,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onGameModeToggle,
     required this.onSearchChanged,
     required this.onAddGame,
+    required this.onCleanRam,
   });
 
   @override
@@ -64,10 +66,66 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           const SizedBox(width: 16),
+          _CleanRamButton(onPressed: onCleanRam),
+          const SizedBox(width: 12),
           _AddGameButton(onPressed: onAddGame),
           const SizedBox(width: 12),
           _GameModeToggle(active: gameModeActive, onToggle: onGameModeToggle),
         ],
+      ),
+    );
+  }
+}
+
+/// Pulsante per la pulizia RAM — sgonfia il working set dei processi in
+/// esecuzione (vedi [RamCleanerService]). Stesso stile neutro
+/// dell'_AddGameButton: anche questo è un'azione secondaria rispetto al
+/// Game Mode.
+class _CleanRamButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _CleanRamButton({required this.onPressed});
+
+  @override
+  State<_CleanRamButton> createState() => _CleanRamButtonState();
+}
+
+class _CleanRamButtonState extends State<_CleanRamButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _hovering
+                ? Color.alphaBlend(Colors.white.withOpacity(0.06), VexonColors.surfaceElevated)
+                : VexonColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cleaning_services, size: 16, color: VexonColors.textSecondary),
+              SizedBox(width: 6),
+              Text(
+                'Pulisci RAM',
+                style: TextStyle(
+                  color: VexonColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

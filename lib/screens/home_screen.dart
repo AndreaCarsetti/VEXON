@@ -1,17 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../models/game.dart';
 import '../services/game_boost_service.dart';
+import '../services/game_lookup_service.dart';
 import '../services/game_scanner_service.dart';
 import '../services/hardware_monitor_service.dart';
 import '../services/manual_games_store.dart';
+import '../services/ram_cleaner_service.dart';
+import '../services/steam_search_lookup_service.dart';
 import '../theme/vexon_colors.dart';
 import '../widgets/add_manual_game_dialog.dart';
 import '../widgets/game_boost_transition.dart';
 import '../widgets/game_card.dart';
 import '../widgets/hardware_hud.dart';
 import '../widgets/particle_background.dart';
+import '../widgets/ram_clean_transition.dart';
 import '../widgets/staggered_fade_in.dart';
 import '../widgets/top_bar.dart';
 import '../widgets/vexon_loading_indicator.dart';
@@ -24,7 +29,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _scanner = GameScannerService();
+  final GameLookupService _lookupService = SteamSearchLookupService();
   final _manualGamesStore = ManualGamesStore();
   late final HardwareMonitorService _hardwareService;
 
@@ -34,6 +39,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _gameModeActive = false;
   HardwareStats? _latestStats;
   bool _showBoostTransition = false;
+
+  // Pulizia RAM: il Future viene passato al widget dell'animazione, che si
+  // occupa da solo di aspettare il risultato e mostrarlo — qui basta
+  // tenere il Future e un flag per sapere se l'overlay va mostrato.
+  Future<RamCleanResult>? _ramCleanFuture;
+  bool _showRamCleanTransition = false;
 
   // Storico "rolling" per i grafici sparkline dell'HUD — 40 campioni a 1
   // ogni secondo = circa gli ultimi 40 secondi, come nel Task Manager.
@@ -64,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadGames() async {
-    final scannedGames = await _scanner.scanAll();
+    final scanner = GameScannerService(lookupService: _lookupService);
+    final scannedGames = await scanner.scanAll();
     final manualGames = await _manualGamesStore.load();
     if (mounted) {
       setState(() {
@@ -72,6 +84,37 @@ class _HomeScreenState extends State<HomeScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Avvia la pulizia RAM ([RamCleanerService]) e mostra l'animazione
+  /// finché non è completata. Lo snapshot "prima" è l'ultimo letto dal
+  /// monitor hardware già in esecuzione; quello "dopo" si aspetta un
+  /// campione fresco (il monitor campiona ogni secondo) invece di fidarsi
+  /// di un valore potenzialmente ancora vecchio.
+  void _runRamCleanup() {
+    final before = _latestStats;
+    if (before == null) return; // nessuno snapshot ancora disponibile, riprova tra poco
+
+    setState(() {
+      _showRamCleanTransition = true;
+      _ramCleanFuture = _performRamCleanup(before);
+    });
+  }
+
+  Future<RamCleanResult> _performRamCleanup(HardwareStats before) async {
+    final trimmed = await RamCleanerService.clean();
+
+    // Aspetta il prossimo campione "fresco" del monitor hardware invece
+    // di leggere subito _latestStats: appena dopo la pulizia potrebbe
+    // essere ancora lo snapshot di prima.
+    final after = await _hardwareService.statsStream.first;
+
+    return RamCleanResult(
+      ramBeforeGb: before.ramUsedGb,
+      ramAfterGb: after.ramUsedGb,
+      ramTotalGb: before.ramTotalGb,
+      processesTrimmed: trimmed,
+    );
   }
 
   Future<void> _openAddManualGameDialog() async {
@@ -88,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadGames();
   }
 
-  Future<void> _confirmRemoveManualGame(Game game) async {
+  Future<void> _confirmRemoveGame(Game game) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -115,10 +158,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed != true) return;
+
+    if (game.source == GameSource.manual) {
       await _manualGamesStore.remove(game.id);
-      await _loadGames();
     }
+    await _loadGames();
   }
 
   /// Avvia un gioco. Per Steam usa il protocollo steam://rungameid/<appid>
@@ -197,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onGameModeToggle: _toggleGameMode,
         onSearchChanged: (q) => setState(() => _searchQuery = q),
         onAddGame: _openAddManualGameDialog,
+        onCleanRam: _runRamCleanup,
       ),
       body: ParticleBackground(
         child: Stack(
@@ -227,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 // quelle rilevate da Steam/Epic restano
                                 // gestite dai rispettivi launcher.
                                 onLongPress: game.source == GameSource.manual
-                                    ? () => _confirmRemoveManualGame(game)
+                                    ? () => _confirmRemoveGame(game)
                                     : null,
                               ),
                             );
@@ -250,6 +296,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   activating: _gameModeActive,
                   onCompleted: () {
                     if (mounted) setState(() => _showBoostTransition = false);
+                  },
+                ),
+              ),
+            if (_showRamCleanTransition && _ramCleanFuture != null)
+              Positioned.fill(
+                child: RamCleanTransition(
+                  resultFuture: _ramCleanFuture!,
+                  onCompleted: () {
+                    if (mounted) setState(() => _showRamCleanTransition = false);
                   },
                 ),
               ),

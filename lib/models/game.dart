@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 /// Rappresenta un gioco rilevato in una delle librerie supportate
-/// (Steam, Epic, GOG, ...).
+/// (Steam, Epic, GOG, Battle.net, EA, Ubisoft Connect, ...) oppure aggiunto
+/// a mano dall'utente.
 class Game {
   final String id;
   final String title;
@@ -28,7 +29,15 @@ class Game {
   });
 }
 
-enum GameSource { steam, epic, gog, battlenet, manual }
+enum GameSource {
+  steam,
+  epic,
+  gog,
+  battlenet,
+  ea,
+  ubisoft,
+  manual,
+}
 
 extension GameSourceLabel on GameSource {
   String get label {
@@ -41,6 +50,10 @@ extension GameSourceLabel on GameSource {
         return 'GOG';
       case GameSource.battlenet:
         return 'Battle.net';
+      case GameSource.ea:
+        return 'EA App';
+      case GameSource.ubisoft:
+        return 'Ubisoft Connect';
       case GameSource.manual:
         return 'Aggiunto manualmente';
     }
@@ -57,6 +70,10 @@ extension GameSourceLabel on GameSource {
         return Icons.storefront;
       case GameSource.battlenet:
         return Icons.bolt;
+      case GameSource.ea:
+        return Icons.sports_esports;
+      case GameSource.ubisoft:
+        return Icons.flag;
       case GameSource.manual:
         return Icons.folder;
     }
