@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/vexon_colors.dart';
+import 'scan_divider.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool gameModeActive;
@@ -24,53 +25,63 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return Container(
       height: preferredSize.height,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: VexonColors.surface,
-        border: Border(bottom: BorderSide(color: Colors.white10)),
-      ),
-      child: Row(
+      color: VexonColors.surface,
+      // Column invece di Stack: il contenuto va nella riga "Expanded" (che
+      // lo centra verticalmente come una Row normale farebbe), la linea
+      // animata è una striscia a parte sotto — niente overlay manuale con
+      // Positioned che rischia di disallineare tutto il resto.
+      child: Column(
         children: [
-          Image.asset('assets/icons/symbol.png', height: 36),
-          const SizedBox(width: 12),
-          const Text(
-            'VEXON',
-            style: TextStyle(
-              color: VexonColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 3,
-            ),
-          ),
-          const SizedBox(width: 40),
           Expanded(
-            child: SizedBox(
-              height: 40,
-              child: TextField(
-                onChanged: onSearchChanged,
-                style: const TextStyle(color: VexonColors.textPrimary, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Cerca un gioco…',
-                  hintStyle: const TextStyle(color: VexonColors.textSecondary),
-                  filled: true,
-                  fillColor: VexonColors.surfaceElevated,
-                  prefixIcon:
-                      const Icon(Icons.search, color: VexonColors.textSecondary, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Image.asset('assets/icons/symbol.png', height: 36),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'VEXON',
+                    style: TextStyle(
+                      color: VexonColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 3,
+                    ),
                   ),
-                  contentPadding: EdgeInsets.zero,
-                ),
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: TextField(
+                        onChanged: onSearchChanged,
+                        style: const TextStyle(color: VexonColors.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Cerca un gioco…',
+                          hintStyle: const TextStyle(color: VexonColors.textSecondary),
+                          filled: true,
+                          fillColor: VexonColors.surfaceElevated,
+                          prefixIcon:
+                              const Icon(Icons.search, color: VexonColors.textSecondary, size: 20),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  _CleanRamButton(onPressed: onCleanRam),
+                  const SizedBox(width: 12),
+                  _AddGameButton(onPressed: onAddGame),
+                  const SizedBox(width: 12),
+                  _GameModeToggle(active: gameModeActive, onToggle: onGameModeToggle),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          _CleanRamButton(onPressed: onCleanRam),
-          const SizedBox(width: 12),
-          _AddGameButton(onPressed: onAddGame),
-          const SizedBox(width: 12),
-          _GameModeToggle(active: gameModeActive, onToggle: onGameModeToggle),
+          const ScanDivider(),
         ],
       ),
     );

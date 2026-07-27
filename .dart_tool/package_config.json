@@ -200,6 +200,12 @@
       "languageVersion": "3.10"
     },
     {
+      "name": "google_fonts",
+      "rootUri": "file:///C:/Users/AndreaCarsetti/AppData/Local/Pub/Cache/hosted/pub.dev/google_fonts-6.3.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "hooks",
       "rootUri": "file:///C:/Users/AndreaCarsetti/AppData/Local/Pub/Cache/hosted/pub.dev/hooks-2.0.2",
       "packageUri": "lib/",
@@ -483,7 +489,7 @@
     },
     {
       "name": "uuid",
-      "rootUri": "file:///C:/Users/AndreaCarsetti/AppData/Local/Pub/Cache/hosted/pub.dev/uuid-4.6.0",
+      "rootUri": "file:///C:/Users/AndreaCarsetti/AppData/Local/Pub/Cache/hosted/pub.dev/uuid-4.5.3",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },

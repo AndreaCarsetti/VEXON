@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
+import 'scanners/win32_registry_utils.dart';
 
 /// Legge CPU e RAM direttamente dalle API native di Windows, tramite FFI —
 /// nessun processo esterno, nessun permesso di amministratore richiesto.
@@ -90,5 +91,37 @@ class NativeHardwareReader {
     // combinarli in un unico intero a 64 bit è il modo standard per
     // ottenerne il valore numerico completo.
     return (ft.ref.dwHighDateTime << 32) | ft.ref.dwLowDateTime;
+  }
+
+  /// Nome commerciale della CPU (es. "Intel(R) Core(TM) i7-9700K CPU @
+  /// 3.60GHz"), letto dal registro — è lo stesso valore che Windows stesso
+  /// mostra in Gestione dispositivi/Informazioni di sistema. È un dato
+  /// statico (non cambia mentre l'app gira), quindi va letto una sola
+  /// volta e non ad ogni campione.
+  String? readCpuName() {
+    final hKey = Win32RegistryUtils.openKey(
+      HKEY_LOCAL_MACHINE,
+      r'HARDWARE\DESCRIPTION\System\CentralProcessor\0',
+    );
+    if (hKey == null) return null;
+    try {
+      final name = Win32RegistryUtils.getStringValue(hKey, 'ProcessorNameString');
+      return name?.trim();
+    } finally {
+      Win32RegistryUtils.closeKey(hKey);
+    }
+  }
+
+  /// Numero di processori logici (thread) visti dal sistema operativo —
+  /// anche questo statico, va letto una sola volta.
+  int? readLogicalProcessorCount() {
+    final info = calloc<SYSTEM_INFO>();
+    try {
+      GetSystemInfo(info);
+      final count = info.ref.dwNumberOfProcessors;
+      return count > 0 ? count : null;
+    } finally {
+      calloc.free(info);
+    }
   }
 }

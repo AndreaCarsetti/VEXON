@@ -19,6 +19,11 @@ class HardwareStats {
   final double ramUsedGb;
   final double ramTotalGb;
 
+  // Dati statici dell'hardware (non cambiano durante l'esecuzione) — letti
+  // una sola volta dal servizio e ripetuti identici in ogni campione.
+  final String? cpuName;
+  final int? logicalProcessorCount;
+
   const HardwareStats({
     required this.cpuUsagePercent,
     this.cpuTempCelsius,
@@ -26,6 +31,8 @@ class HardwareStats {
     this.gpuTempCelsius,
     required this.ramUsedGb,
     required this.ramTotalGb,
+    this.cpuName,
+    this.logicalProcessorCount,
   });
 
   double get ramUsagePercent => (ramUsedGb / ramTotalGb) * 100;
@@ -38,6 +45,8 @@ class HardwareStats {
       gpuTempCelsius: (json['gpuTempCelsius'] as num?)?.toDouble(),
       ramUsedGb: (json['ramUsedGb'] as num).toDouble(),
       ramTotalGb: (json['ramTotalGb'] as num).toDouble(),
+      cpuName: json['cpuName'] as String?,
+      logicalProcessorCount: (json['logicalProcessorCount'] as num?)?.toInt(),
     );
   }
 }
@@ -79,6 +88,8 @@ class _MockHardwareMonitorService implements HardwareMonitorService {
         gpuTempCelsius: 50 + _rnd.nextDouble() * 30,
         ramUsedGb: 6 + _rnd.nextDouble() * 6,
         ramTotalGb: 16,
+        cpuName: 'CPU Simulata X9 (dati mock)',
+        logicalProcessorCount: 16,
       ));
     });
   }
@@ -97,6 +108,11 @@ class _NativeHardwareMonitorService implements HardwareMonitorService {
   final _controller = StreamController<HardwareStats>.broadcast();
   final _reader = NativeHardwareReader();
   Timer? _timer;
+
+  // Letti una volta sola all'avvio: sono fatti statici dell'hardware, non
+  // ha senso rileggerli dal registro/da GetSystemInfo ogni secondo.
+  late final String? _cpuName = _reader.readCpuName();
+  late final int? _logicalProcessorCount = _reader.readLogicalProcessorCount();
 
   _NativeHardwareMonitorService() {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _sample());
@@ -118,6 +134,8 @@ class _NativeHardwareMonitorService implements HardwareMonitorService {
       gpuTempCelsius: null,
       ramUsedGb: memory.usedGb,
       ramTotalGb: memory.totalGb,
+      cpuName: _cpuName,
+      logicalProcessorCount: _logicalProcessorCount,
     ));
   }
 

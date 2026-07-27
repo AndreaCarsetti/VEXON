@@ -24,4 +24,31 @@ class KioskService {
     await windowManager.setAlwaysOnTop(true);
     WindowState.isKiosk.value = true;
   }
+
+  /// Esegue [action] dopo aver tolto temporaneamente l'always-on-top (se
+  /// attivo), ripristinandolo subito dopo — non tocca fullscreen, solo
+  /// l'always-on-top.
+  ///
+  /// PERCHÉ SERVE: qualsiasi finestra nativa esterna a VEXON (es. il
+  /// selettore file di Windows aperto da "Sfoglia…") viene aperta come
+  /// finestra separata, non always-on-top essa stessa — quindi, con VEXON
+  /// sempre in primo piano, ci finirebbe dietro: invisibile e non
+  /// cliccabile, sembra che "non si apra". Va usato attorno a qualunque
+  /// azione che possa far comparire una finestra esterna.
+  static Future<T> withoutAlwaysOnTop<T>(Future<T> Function() action) async {
+    final wasKiosk = WindowState.isKiosk.value;
+    if (wasKiosk) {
+      await windowManager.setAlwaysOnTop(false);
+    }
+    try {
+      return await action();
+    } finally {
+      // Ripristina solo se eravamo effettivamente in kiosk prima — se nel
+      // frattempo l'utente è già uscito dalla modalità kiosk (es. ESC),
+      // non ha senso rimetterla noi.
+      if (wasKiosk && WindowState.isKiosk.value) {
+        await windowManager.setAlwaysOnTop(true);
+      }
+    }
+  }
 }

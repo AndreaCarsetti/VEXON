@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../services/kiosk_service.dart';
 import '../theme/vexon_colors.dart';
 
 /// Dialog per aggiungere manualmente un gioco: titolo + percorso
@@ -21,11 +22,16 @@ class _AddManualGameDialogState extends State<AddManualGameDialog> {
   final _pathController = TextEditingController();
 
   Future<void> _pickExecutable() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['exe'],
-      dialogTitle: "Seleziona l'eseguibile del gioco",
-    );
+    // Senza questo, il selettore file nativo si aprirebbe DIETRO VEXON
+    // (che è sempre in primo piano in modalità kiosk) — invisibile e non
+    // cliccabile, sembra che "Sfoglia…" non faccia nulla.
+    final result = await KioskService.withoutAlwaysOnTop(() {
+      return FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['exe'],
+        dialogTitle: "Seleziona l'eseguibile del gioco",
+      );
+    });
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;

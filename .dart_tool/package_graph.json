@@ -11,6 +11,7 @@
         "ffi",
         "file_picker",
         "flutter",
+        "google_fonts",
         "http",
         "launch_at_startup",
         "path",
@@ -78,6 +79,16 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "google_fonts",
+      "version": "6.3.3",
+      "dependencies": [
+        "crypto",
+        "flutter",
+        "http",
+        "path_provider"
       ]
     },
     {
@@ -351,6 +362,13 @@
       ]
     },
     {
+      "name": "crypto",
+      "version": "3.0.7",
+      "dependencies": [
+        "typed_data"
+      ]
+    },
+    {
       "name": "path_provider_windows",
       "version": "2.3.0",
       "dependencies": [
@@ -429,7 +447,7 @@
     },
     {
       "name": "uuid",
-      "version": "4.6.0",
+      "version": "4.5.3",
       "dependencies": [
         "crypto",
         "fixnum"
@@ -685,13 +703,6 @@
       "name": "fixnum",
       "version": "1.1.1",
       "dependencies": []
-    },
-    {
-      "name": "crypto",
-      "version": "3.0.7",
-      "dependencies": [
-        "typed_data"
-      ]
     },
     {
       "name": "screen_retriever_windows",

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/game.dart';
 import '../theme/vexon_colors.dart';
+import 'hud_corner_brackets.dart';
 
 class GameCard extends StatefulWidget {
   final Game game;
@@ -41,7 +42,9 @@ class _GameCardState extends State<GameCard> {
           scale: _scale,
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
+          child: Stack(
+            children: [
+              AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
@@ -133,6 +136,12 @@ class _GameCardState extends State<GameCard> {
                 ],
               ),
             ),
+              ),
+              if (_hovering)
+                const Positioned.fill(
+                  child: HudCornerBrackets(length: 14, thickness: 1.6, color: VexonColors.brandRed),
+                ),
+            ],
           ),
         ),
       ),

@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:window_manager/window_manager.dart';
 import '../models/game.dart';
 import '../services/game_boost_service.dart';
 import '../services/game_lookup_service.dart';
 import '../services/game_scanner_service.dart';
 import '../services/hardware_monitor_service.dart';
+import '../services/kiosk_service.dart';
 import '../services/manual_games_store.dart';
 import '../services/ram_cleaner_service.dart';
 import '../services/steam_search_lookup_service.dart';
@@ -14,6 +16,7 @@ import '../theme/vexon_colors.dart';
 import '../widgets/add_manual_game_dialog.dart';
 import '../widgets/game_boost_transition.dart';
 import '../widgets/game_card.dart';
+import '../widgets/game_launch_transition.dart';
 import '../widgets/hardware_hud.dart';
 import '../widgets/particle_background.dart';
 import '../widgets/ram_clean_transition.dart';
@@ -46,12 +49,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<RamCleanResult>? _ramCleanFuture;
   bool _showRamCleanTransition = false;
 
+  // Gioco per cui è in corso la schermata di avvio (vedi _launchGame /
+  // GameLaunchTransition) — null quando nessun lancio è in corso.
+  Game? _launchingGame;
+
   // Storico "rolling" per i grafici sparkline dell'HUD — 40 campioni a 1
   // ogni secondo = circa gli ultimi 40 secondi, come nel Task Manager.
   static const _historyLength = 40;
   final List<double> _cpuHistory = [];
   final List<double> _gpuHistory = [];
   final List<double> _ramHistory = [];
+
+  /// Durata dell'overlay di avvio mostrato prima di cedere il primo piano
+  /// al gioco (vedi GameLaunchTransition per il perché). Se sul tuo PC i
+  /// giochi impiegano tipicamente di più/meno a comparire, questo è il
+  /// valore da modificare.
+  static const _gameLaunchGraceDuration = Duration(seconds: 5);
 
   @override
   void initState() {
@@ -184,25 +197,39 @@ class _HomeScreenState extends State<HomeScreen> {
           ['/c', 'start', '', 'steam://rungameid/${game.steamAppId}'],
           mode: ProcessStartMode.detached,
         );
-        return;
+      } else {
+        if (game.executablePath.isEmpty) {
+          throw const FileSystemException('Percorso eseguibile mancante');
+        }
+
+        await Process.start(
+          game.executablePath,
+          [],
+          mode: ProcessStartMode.detached,
+          workingDirectory: p.dirname(game.executablePath),
+        );
       }
 
-      if (game.executablePath.isEmpty) {
-        throw const FileSystemException('Percorso eseguibile mancante');
-      }
-
-      await Process.start(
-        game.executablePath,
-        [],
-        mode: ProcessStartMode.detached,
-        workingDirectory: p.dirname(game.executablePath),
-      );
+      // VEXON gira sempre in primo piano (modalità kiosk) — senza questo
+      // passaggio il gioco appena avviato resterebbe coperto dalla
+      // dashboard. Si mostra prima una schermata di caricamento (la
+      // finestra del gioco impiega comunque qualche secondo a comparire),
+      // poi si toglie l'always-on-top e si minimizza VEXON per lasciarlo
+      // emergere. Vedi GameLaunchTransition per i dettagli/limiti di
+      // questo approccio.
+      if (mounted) setState(() => _launchingGame = game);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Impossibile avviare "${game.title}": $e')),
       );
     }
+  }
+
+  Future<void> _onGameLaunchTransitionCompleted() async {
+    await KioskService.exitKiosk();
+    await windowManager.minimize();
+    if (mounted) setState(() => _launchingGame = null);
   }
 
   void _toggleGameMode(bool active) {
@@ -306,6 +333,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   onCompleted: () {
                     if (mounted) setState(() => _showRamCleanTransition = false);
                   },
+                ),
+              ),
+            if (_launchingGame != null)
+              Positioned.fill(
+                child: GameLaunchTransition(
+                  game: _launchingGame!,
+                  duration: _gameLaunchGraceDuration,
+                  onCompleted: _onGameLaunchTransitionCompleted,
                 ),
               ),
           ],
