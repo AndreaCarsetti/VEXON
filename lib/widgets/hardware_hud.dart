@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/hardware_monitor_service.dart';
 import '../theme/vexon_colors.dart';
 import 'sparkline.dart';
@@ -14,6 +13,8 @@ class HardwareHud extends StatefulWidget {
   final List<double> cpuHistory;
   final List<double> gpuHistory;
   final List<double> ramHistory;
+  final String? gpuName;
+  final double? gpuUsagePercent;
 
   const HardwareHud({
     super.key,
@@ -21,6 +22,8 @@ class HardwareHud extends StatefulWidget {
     this.cpuHistory = const [],
     this.gpuHistory = const [],
     this.ramHistory = const [],
+    this.gpuName,
+    this.gpuUsagePercent,
   });
 
   @override
@@ -66,12 +69,6 @@ class _HardwareHudState extends State<HardwareHud> with SingleTickerProviderStat
     return '${two(d.inHours)}:${two(d.inMinutes % 60)}:${two(d.inSeconds % 60)}';
   }
 
-  String _clockLabel() {
-    final now = DateTime.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
-  }
-
   double? _peak(List<double> history) {
     if (history.isEmpty) return null;
     return history.reduce(max);
@@ -81,7 +78,7 @@ class _HardwareHudState extends State<HardwareHud> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final s = widget.stats;
 
-    final available = [s?.cpuUsagePercent, s?.gpuUsagePercent, s?.ramUsagePercent]
+    final available = [s?.cpuUsagePercent, widget.gpuUsagePercent ?? s?.gpuUsagePercent, s?.ramUsagePercent]
         .whereType<double>()
         .toList();
     final worst = available.isEmpty ? null : available.reduce(max);
@@ -186,7 +183,7 @@ class _HardwareHudState extends State<HardwareHud> with SingleTickerProviderStat
                               ),
                               _gaugeColumn(
                                 label: 'GPU',
-                                value: s.gpuUsagePercent,
+                                value: widget.gpuUsagePercent ?? s.gpuUsagePercent,
                                 detail: _tempLabel(s.gpuTempCelsius),
                                 peak: _peak(widget.gpuHistory),
                                 history: widget.gpuHistory,
@@ -240,36 +237,30 @@ class _HardwareHudState extends State<HardwareHud> with SingleTickerProviderStat
                               ),
                             ],
                           ],
+                          if (widget.gpuName != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.gpuName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: VexonColors.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           Container(height: 1, color: Colors.white10),
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'UPTIME ${_uptimeLabel()}  ·  SESSION #$_sessionTag',
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  color: VexonColors.textDisabled,
-                                  fontSize: 9.5,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                              // Orologio digitale — piccolo e in grigio
-                              // scuro apposta: un dettaglio da "centro di
-                              // controllo", non un elemento che deve
-                              // attirare l'attenzione mentre si legge il
-                              // resto del pannello.
-                              Text(
-                                _clockLabel(),
-                                style: GoogleFonts.vt323(
-                                  color: VexonColors.textSecondary,
-                                  fontSize: 16,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'UPTIME ${_uptimeLabel()}  ·  SESSION #$_sessionTag',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              color: VexonColors.textDisabled,
+                              fontSize: 9.5,
+                              letterSpacing: 0.8,
+                            ),
                           ),
                         ],
                       ],

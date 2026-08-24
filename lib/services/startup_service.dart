@@ -5,7 +5,7 @@ import 'dart:io';
 ///
 /// Sotto il cofano, il pacchetto `launch_at_startup` crea una entry nel
 /// registro di Windows (HKCU\...\Run) che punta all'eseguibile dell'app —
-/// è lo stesso meccanismo standard usato da app come Steam o Discord per
+/// è lo stesso meccanismo standard usato da app come Steam per
 /// "avvia con Windows", non richiede privilegi da amministratore.
 ///
 /// NOTA IMPORTANTE: `Platform.resolvedExecutable` in modalità debug punta

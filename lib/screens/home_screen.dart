@@ -12,8 +12,10 @@ import '../services/kiosk_service.dart';
 import '../services/manual_games_store.dart';
 import '../services/ram_cleaner_service.dart';
 import '../services/steam_search_lookup_service.dart';
+import '../services/system_tray_service.dart';
 import '../theme/vexon_colors.dart';
 import '../widgets/add_manual_game_dialog.dart';
+import '../widgets/bottom_taskbar.dart';
 import '../widgets/game_boost_transition.dart';
 import '../widgets/game_card.dart';
 import '../widgets/game_launch_transition.dart';
@@ -35,12 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final GameLookupService _lookupService = SteamSearchLookupService();
   final _manualGamesStore = ManualGamesStore();
   late final HardwareMonitorService _hardwareService;
+  late final SystemTrayService _systemTrayService;
 
   List<Game> _games = [];
   String _searchQuery = '';
   bool _loading = true;
   bool _gameModeActive = false;
   HardwareStats? _latestStats;
+  SystemTrayStats? _latestTrayStats;
   bool _showBoostTransition = false;
 
   // Pulizia RAM: il Future viene passato al widget dell'animazione, che si
@@ -75,8 +79,18 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _latestStats = stats;
         _pushHistory(_cpuHistory, stats.cpuUsagePercent);
-        if (stats.gpuUsagePercent != null) _pushHistory(_gpuHistory, stats.gpuUsagePercent!);
         _pushHistory(_ramHistory, stats.ramUsagePercent);
+      });
+    });
+    _systemTrayService = SystemTrayService();
+    _systemTrayService.statsStream.listen((stats) {
+      if (!mounted) return;
+      setState(() {
+        _latestTrayStats = stats;
+        // L'uso GPU arriva dal servizio "tray" (via performance counter),
+        // non da HardwareMonitorService (che per la GPU resta sempre
+        // null) — lo storico va aggiornato qui, non nell'altro listener.
+        if (stats.gpuUsagePercent != null) _pushHistory(_gpuHistory, stats.gpuUsagePercent!);
       });
     });
     _loadGames();
@@ -257,6 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _hardwareService.dispose();
+    _systemTrayService.dispose();
     super.dispose();
   }
 
@@ -270,6 +285,10 @@ class _HomeScreenState extends State<HomeScreen> {
         onSearchChanged: (q) => setState(() => _searchQuery = q),
         onAddGame: _openAddManualGameDialog,
         onCleanRam: _runRamCleanup,
+      ),
+      bottomNavigationBar: BottomTaskbar(
+        stats: _latestTrayStats,
+        onToggleMute: () => _systemTrayService.toggleMute(),
       ),
       body: ParticleBackground(
         child: Stack(
@@ -315,6 +334,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 cpuHistory: _cpuHistory,
                 gpuHistory: _gpuHistory,
                 ramHistory: _ramHistory,
+                gpuName: _latestTrayStats?.gpuName,
+                gpuUsagePercent: _latestTrayStats?.gpuUsagePercent,
               ),
             ),
             if (_showBoostTransition)

@@ -23,11 +23,16 @@ Future<void> main() async {
   // servono anche temperature e uso GPU reali, ma va avviato/installato a
   // parte: vedi companion_service/README.md.
 
-  // Setup finestra kiosk: fullscreen, senza bordi, sempre in primo piano.
-  // window_manager gestisce questo in modo cross-platform (Windows/Linux/macOS);
-  // per il "vero" nascondere della taskbar e blocco Alt-Tab/tasto Windows
-  // serve codice nativo aggiuntivo lato Windows (platform channel) — vedi
+  // Setup finestra kiosk: fullscreen, senza bordi. window_manager gestisce
+  // questo in modo cross-platform (Windows/Linux/macOS); per il "vero"
+  // nascondere della taskbar e blocco Alt-Tab/tasto Windows serve codice
+  // nativo aggiuntivo lato Windows (platform channel) — vedi
   // windows/runner/win32_window.cpp per l'implementazione da aggiungere.
+  //
+  // NOTA: niente always-on-top di proposito — VEXON a schermo intero si
+  // comporta come una finestra normale rispetto al focus, così un gioco,
+  // il selettore file, o qualunque altra finestra può comparire davanti
+  // senza che VEXON debba "farsi da parte" manualmente.
   await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
@@ -39,7 +44,6 @@ Future<void> main() async {
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.setFullScreen(true);
-    await windowManager.setAlwaysOnTop(true);
     await windowManager.show();
     await windowManager.focus();
   });

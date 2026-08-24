@@ -124,4 +124,30 @@ class NativeHardwareReader {
       calloc.free(info);
     }
   }
+
+  /// Stato batteria — solo per PC portatili: su desktop (il caso più
+  /// comune per un PC da gaming) Windows non riporta nessuna batteria e
+  /// questo ritorna `null`, che l'HUD interpreta come "nascondi l'icona".
+  ({int percent, bool charging})? readBatteryStatus() {
+    final status = calloc<SYSTEM_POWER_STATUS>();
+    try {
+      final result = GetSystemPowerStatus(status);
+      if (result == 0) return null;
+
+      final batteryFlag = status.ref.BatteryFlag;
+      final percent = status.ref.BatteryLifePercent;
+      // BatteryFlag 128 = "no system battery" (desktop), 255 = sconosciuto;
+      // BatteryLifePercent 255 = sconosciuto. In entrambi i casi non c'è
+      // un dato affidabile da mostrare.
+      if (batteryFlag == 128 || batteryFlag == 255 || percent == 255) return null;
+
+      // Bit 3 (valore 8) di BatteryFlag indica "in carica".
+      final charging = (batteryFlag & 8) != 0;
+      return (percent: percent, charging: charging);
+    } catch (_) {
+      return null;
+    } finally {
+      calloc.free(status);
+    }
+  }
 }

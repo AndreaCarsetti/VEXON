@@ -9,12 +9,14 @@ class ScanDivider extends StatefulWidget {
   final Color color;
   final double thickness;
   final Duration duration;
+  final bool reverse;
 
   const ScanDivider({
     super.key,
     this.color = VexonColors.brandRed,
     this.thickness = 2,
     this.duration = const Duration(seconds: 3),
+    this.reverse = false,
   });
 
   @override
@@ -48,10 +50,15 @@ class _ScanDividerState extends State<ScanDivider> with SingleTickerProviderStat
           return AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
-              // Entra da sinistra (fuori schermo) ed esce da destra (fuori
-              // schermo): a t=0 e t=1 la cometa è completamente invisibile,
-              // quindi il loop riparte senza scatti percepibili.
-              final left = _controller.value * (width + segmentWidth) - segmentWidth;
+              // Entra da un lato (fuori schermo) ed esce dall'altro: a
+              // t=0 e t=1 la cometa è completamente invisibile, quindi il
+              // loop riparte senza scatti percepibili. Con [reverse] va da
+              // destra a sinistra invece che da sinistra a destra — utile
+              // per far "contrastare" due ScanDivider sovrapposti (es.
+              // sopra/sotto lo schermo) invece di viaggiare nello stesso
+              // verso.
+              final progress = widget.reverse ? 1 - _controller.value : _controller.value;
+              final left = progress * (width + segmentWidth) - segmentWidth;
 
               return ClipRect(
                 child: Stack(
