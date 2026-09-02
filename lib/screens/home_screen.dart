@@ -285,6 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onSearchChanged: (q) => setState(() => _searchQuery = q),
         onAddGame: _openAddManualGameDialog,
         onCleanRam: _runRamCleanup,
+        stats: _latestStats,
       ),
       bottomNavigationBar: BottomTaskbar(
         stats: _latestTrayStats,

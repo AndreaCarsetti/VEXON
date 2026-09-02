@@ -18,7 +18,7 @@ dependencies:
   audioplayers: ^6.1.0
   file_picker: ^8.1.2  # selezione file nativa per l'aggiunta manuale dei giochi
   path_provider: ^2.1.0  # cartella dati app per salvare i giochi aggiunti manualmente
-  google_fonts: ^6.1.0  # font digitale/terminale per l'orologio dell'HUD
+  google_fonts: ^6.1.0  # Rajdhani (UI) + VT323 (readout digitali) — vedi lib/theme/vexon_typography.dart
 
 dev_dependencies:
   flutter_test:

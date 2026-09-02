@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/VEXON/vexon_temp/windows"
+    "cmake.sourceDirectory": "C:/VEXON/vexon_temp/windows",
+    "cmake.ignoreCMakeListsMissing": true
 }

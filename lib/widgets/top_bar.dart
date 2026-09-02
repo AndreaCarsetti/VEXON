@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import '../services/hardware_monitor_service.dart';
 import '../theme/vexon_colors.dart';
+import '../theme/vexon_typography.dart';
 import 'scan_divider.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
@@ -8,6 +12,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onAddGame;
   final VoidCallback onCleanRam;
+  final HardwareStats? stats;
 
   const TopBar({
     super.key,
@@ -16,6 +21,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSearchChanged,
     required this.onAddGame,
     required this.onCleanRam,
+    this.stats,
   });
 
   @override
@@ -37,27 +43,17 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Image.asset('assets/icons/symbol.png', height: 36),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'VEXON',
-                    style: TextStyle(
-                      color: VexonColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  const SizedBox(width: 40),
+                  _BrandSymbol(stats: stats),
+                  const SizedBox(width: 28),
                   Expanded(
                     child: SizedBox(
                       height: 40,
                       child: TextField(
                         onChanged: onSearchChanged,
-                        style: const TextStyle(color: VexonColors.textPrimary, fontSize: 14),
+                        style: VexonTypography.body(),
                         decoration: InputDecoration(
                           hintText: 'Cerca un gioco…',
-                          hintStyle: const TextStyle(color: VexonColors.textSecondary),
+                          hintStyle: VexonTypography.body(color: VexonColors.textSecondary),
                           filled: true,
                           fillColor: VexonColors.surfaceElevated,
                           prefixIcon:
@@ -86,6 +82,166 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
     );
   }
+}
+
+/// Il simbolo V in top bar, con un alone rosso che riflette il carico
+/// hardware reale e reagisce all'hover.
+///
+/// L'intensità di base (colore, sfocatura, opacità) è calcolata dal carico
+/// CPU/GPU corrente invece che animata con un timer: sale e scende insieme
+/// ai dati veri che arrivano da [HardwareStats], quindi "respira" in modo
+/// organico senza bisogno di un AnimationController dedicato — e resta
+/// coerente con la scelta, già fatta nel boot sequence, di non far
+/// lampeggiare il logo con un pulsare finto e continuo.
+///
+/// Sull'hover si aggiunge un secondo livello, quello sì puramente
+/// decorativo: leggero scale-up e un anello che ruota lentamente attorno
+/// al simbolo ([_OrbitRingPainter]), per dare un feedback immediato che il
+/// simbolo è un elemento vivo dell'interfaccia — senza il tono "mirino da
+/// FPS" che davano i corner brackets usati altrove (es. sulle card dei
+/// giochi), fuori posto per un semplice elemento di brand.
+class _BrandSymbol extends StatefulWidget {
+  final HardwareStats? stats;
+  const _BrandSymbol({this.stats});
+
+  @override
+  State<_BrandSymbol> createState() => _BrandSymbolState();
+}
+
+class _BrandSymbolState extends State<_BrandSymbol> with SingleTickerProviderStateMixin {
+  bool _hovering = false;
+  late final AnimationController _ringController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ringController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ringController.dispose();
+    super.dispose();
+  }
+
+  void _setHovering(bool value) {
+    setState(() => _hovering = value);
+    if (value) {
+      _ringController.repeat();
+    } else {
+      _ringController.stop();
+    }
+  }
+
+  /// 0.0 (sistema a riposo) — 1.0 (CPU o GPU quasi al massimo).
+  double get _loadFraction {
+    final stats = widget.stats;
+    if (stats == null) return 0.0;
+    final cpu = stats.cpuUsagePercent;
+    final gpu = stats.gpuUsagePercent ?? 0;
+    return (cpu > gpu ? cpu : gpu).clamp(0, 100) / 100;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final load = _loadFraction;
+    // Sotto carico il bagliore non solo cresce, si scalda: dal rosso brand
+    // verso un rosso-arancio più "caldo", come una lama che si surriscalda.
+    final glowColor = Color.lerp(VexonColors.brandRed, VexonColors.warning, load * 0.55)!;
+    final baseOpacity = 0.32 + load * 0.28;
+    final baseBlur = 18.0 + load * 14.0;
+    final baseSpread = 1.0 + load * 3.0;
+
+    return MouseRegion(
+      onEnter: (_) => _setHovering(true),
+      onExit: (_) => _setHovering(false),
+      child: AnimatedScale(
+        scale: _hovering ? 1.08 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: SizedBox(
+          // Un po' più grande del cerchio del glow, per lasciare respiro
+          // all'anello che gli ruota attorno senza tagliarlo ai bordi.
+          width: 60,
+          height: 60,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedOpacity(
+                opacity: _hovering ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                child: AnimatedBuilder(
+                  animation: _ringController,
+                  builder: (context, child) => Transform.rotate(
+                    angle: _ringController.value * 2 * math.pi,
+                    child: child,
+                  ),
+                  child: CustomPaint(
+                    size: const Size(58, 58),
+                    painter: _OrbitRingPainter(color: glowColor),
+                  ),
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: glowColor.withOpacity(_hovering ? baseOpacity + 0.15 : baseOpacity),
+                      blurRadius: _hovering ? baseBlur + 6 : baseBlur,
+                      spreadRadius: _hovering ? baseSpread + 1 : baseSpread,
+                    ),
+                  ],
+                ),
+                child: Image.asset('assets/icons/symbol.png', height: 36),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Anello sottile e discontinuo (due archi contrapposti, non un cerchio
+/// pieno) che ruota lentamente attorno al simbolo sull'hover — un effetto
+/// più "elegante/da scanner" rispetto a un mirino, che dava un'idea troppo
+/// aggressiva da FPS per un semplice elemento di brand.
+class _OrbitRingPainter extends CustomPainter {
+  final Color color;
+  _OrbitRingPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height).deflate(1);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        colors: [color.withOpacity(0), color, color.withOpacity(0)],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
+
+    // Due archi da ~70° l'uno opposto all'altro, invece di un cerchio
+    // continuo: legge meglio come "elemento che ruota" piuttosto che come
+    // un semplice bordo statico animato.
+    const sweep = 1.25; // ~70° in radianti
+    canvas.drawArc(rect, 0, sweep, false, paint);
+    canvas.drawArc(rect, math.pi, sweep, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitRingPainter oldDelegate) => oldDelegate.color != color;
 }
 
 /// Pulsante per la pulizia RAM — sgonfia il working set dei processi in

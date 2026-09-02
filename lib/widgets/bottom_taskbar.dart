@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/system_tray_service.dart';
 import '../theme/vexon_colors.dart';
+import '../theme/vexon_typography.dart';
 import 'disk_space_bar.dart';
 import 'quick_actions_bar.dart';
 import 'scan_divider.dart';
@@ -110,21 +110,14 @@ class _BottomTaskbarState extends State<BottomTaskbar> {
                     children: [
                       Text(
                         _clockLabel(now),
-                        style: GoogleFonts.vt323(
-                          color: VexonColors.textSecondary,
-                          fontSize: 20,
-                          letterSpacing: 1.5,
-                          height: 1,
-                        ),
+                        style: VexonTypography.digital(fontSize: 20),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _dateLabel(now),
-                        style: const TextStyle(
+                        style: VexonTypography.caption(
                           color: VexonColors.textDisabled,
                           fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.6,
                         ),
                       ),
                     ],

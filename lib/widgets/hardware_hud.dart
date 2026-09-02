@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/hardware_monitor_service.dart';
 import '../theme/vexon_colors.dart';
+import '../theme/vexon_typography.dart';
 import 'sparkline.dart';
 
 /// HUD hardware in stile "centro di controllo": pannello smussato
@@ -255,12 +256,7 @@ class _HardwareHudState extends State<HardwareHud> with SingleTickerProviderStat
                           const SizedBox(height: 8),
                           Text(
                             'UPTIME ${_uptimeLabel()}  ·  SESSION #$_sessionTag',
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              color: VexonColors.textDisabled,
-                              fontSize: 9.5,
-                              letterSpacing: 0.8,
-                            ),
+                            style: VexonTypography.digitalSmall(fontSize: 13),
                           ),
                         ],
                       ],
@@ -342,12 +338,7 @@ class _RadialGauge extends StatelessWidget {
           ),
           Text(
             value == null ? '--' : value!.toStringAsFixed(0),
-            style: TextStyle(
-              fontFamily: 'monospace',
-              color: Colors.white,
-              fontSize: size * 0.26,
-              fontWeight: FontWeight.bold,
-            ),
+            style: VexonTypography.digitalLarge(fontSize: size * 0.32),
           ),
         ],
       ),
