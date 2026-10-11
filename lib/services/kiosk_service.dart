@@ -1,18 +1,24 @@
 import 'package:window_manager/window_manager.dart';
 import 'window_state.dart';
 
-/// Gestisce la transizione da modalità kiosk (fullscreen, always-on-top)
-/// a finestra normale di Windows.
+/// Gestisce la transizione da modalità kiosk (fullscreen) a finestra
+/// normale di Windows.
 ///
-/// LIMITAZIONE NOTA: window_manager gestisce fullscreen/always-on-top in
-/// modo cross-platform, ma NON nasconde/mostra la taskbar di Windows né
+/// NON usa più `always-on-top`: VEXON resta a schermo intero ma si
+/// comporta come una qualunque finestra normale rispetto al focus — se
+/// apri un gioco, il selettore file, Esplora file, ecc., quelle finestre
+/// possono comparire davanti senza che VEXON debba fare nulla di
+/// speciale per farsi da parte (prima serviva togliere manualmente
+/// l'always-on-top proprio per questo).
+///
+/// LIMITAZIONE NOTA: window_manager gestisce il fullscreen in modo
+/// cross-platform, ma NON nasconde/mostra la taskbar di Windows né
 /// blocca Alt-Tab/tasto Windows — quello richiede codice nativo Win32
 /// aggiuntivo in windows/runner/win32_window.cpp (non incluso in questo
 /// scaffold). Per ora "modalità kiosk" significa: finestra fullscreen
-/// borderless sempre in primo piano, senza vero blocco di sistema.
+/// borderless, senza vero blocco di sistema.
 class KioskService {
   static Future<void> exitKiosk() async {
-    await windowManager.setAlwaysOnTop(false);
     await windowManager.setFullScreen(false);
     await windowManager.setResizable(true);
     await windowManager.center();
@@ -21,34 +27,15 @@ class KioskService {
 
   static Future<void> enterKiosk() async {
     await windowManager.setFullScreen(true);
-    await windowManager.setAlwaysOnTop(true);
     WindowState.isKiosk.value = true;
   }
 
-  /// Esegue [action] dopo aver tolto temporaneamente l'always-on-top (se
-  /// attivo), ripristinandolo subito dopo — non tocca fullscreen, solo
-  /// l'always-on-top.
-  ///
-  /// PERCHÉ SERVE: qualsiasi finestra nativa esterna a VEXON (es. il
-  /// selettore file di Windows aperto da "Sfoglia…") viene aperta come
-  /// finestra separata, non always-on-top essa stessa — quindi, con VEXON
-  /// sempre in primo piano, ci finirebbe dietro: invisibile e non
-  /// cliccabile, sembra che "non si apra". Va usato attorno a qualunque
-  /// azione che possa far comparire una finestra esterna.
-  static Future<T> withoutAlwaysOnTop<T>(Future<T> Function() action) async {
-    final wasKiosk = WindowState.isKiosk.value;
-    if (wasKiosk) {
-      await windowManager.setAlwaysOnTop(false);
-    }
-    try {
-      return await action();
-    } finally {
-      // Ripristina solo se eravamo effettivamente in kiosk prima — se nel
-      // frattempo l'utente è già uscito dalla modalità kiosk (es. ESC),
-      // non ha senso rimetterla noi.
-      if (wasKiosk && WindowState.isKiosk.value) {
-        await windowManager.setAlwaysOnTop(true);
-      }
-    }
+  /// Storicamente toglieva temporaneamente l'always-on-top per lasciare
+  /// comparire finestre esterne (selettore file, Esplora file...). Non
+  /// serve più: VEXON non è mai always-on-top, quindi qui si esegue
+  /// semplicemente [action] — il metodo resta per non dover toccare tutti
+  /// i punti che lo chiamano.
+  static Future<T> withoutAlwaysOnTop<T>(Future<T> Function() action) {
+    return action();
   }
 }

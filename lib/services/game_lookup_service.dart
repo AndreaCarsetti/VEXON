@@ -7,7 +7,7 @@ class GameLookupMatch {
 }
 
 /// Interfaccia comune per i provider usati a "confermare" un titolo e
-/// recuperarne la cover: IGDB (serve una chiave gratuita Twitch, copre
+/// recuperarne la cover: IGDB (serve una chiave gratuita, copre
 /// praticamente ogni gioco) e Steam Store Search (nessuna configurazione,
 /// ma conosce solo giochi presenti su Steam). Scanner e servizi che
 /// necessitano di riconoscere un titolo dipendono da questa interfaccia,

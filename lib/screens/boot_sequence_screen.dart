@@ -61,11 +61,13 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
   static const _holdEndMs = 4550; // il logo resta fermo fino a qui
   // da _holdEndMs a fine (5200ms): dissolvenza verso il nero
 
-  // Box (in px, relativo al centro schermo) dove si forma il contorno
-  // della V — dimensioni scelte per restare vicine a come apparirà poi il
-  // logo reale in `assets/icons/logo_splash.png`.
-  static const _vBoxWidth = 200.0;
-  static const _vBoxHeight = 170.0;
+  // Box (in px, relativo al centro schermo) dove si forma il contorno del
+  // logo — proporzioni (0.97 circa, quasi quadrato) prese dal bounding box
+  // reale di `assets/icons/symbol.png`, non inventate: altrimenti la forma
+  // tracciata dalle scintille risulterebbe schiacciata o allargata rispetto
+  // al logo vero che compare subito dopo.
+  static const _vBoxWidth = 184.0;
+  static const _vBoxHeight = 190.0;
 
   @override
   void initState() {
@@ -86,7 +88,11 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
 
   void _generateEmbers() {
     final rnd = Random(33); // seed fisso: pattern coerente ad ogni avvio
-    final targets = _generateVOutlinePoints()..shuffle(rnd);
+    // .of(...) crea una copia modificabile: _generateVOutlinePoints()
+    // ritorna una lista `const` (immutabile), e .shuffle() la modifica sul
+    // posto — senza la copia si otterrebbe "Unsupported operation: Cannot
+    // modify an unmodifiable list".
+    final targets = List<Offset>.of(_generateVOutlinePoints())..shuffle(rnd);
 
     _embers = targets.map((target) {
       return _Ember(
@@ -98,23 +104,83 @@ class _BootSequenceScreenState extends State<BootSequenceScreen>
     }).toList();
   }
 
-  /// Punti campionati lungo le due "lame" della V, in coordinate relative
-  /// al box del logo (0,0 = angolo in alto a sinistra del box, 1,1 = in
-  /// basso a destra) — una V semplice a due segmenti, sufficiente per far
-  /// riconoscere la forma mentre le scintille la disegnano.
+  /// Punti campionati lungo il contorno REALE del logo (silhouette esterna
+  /// di `assets/icons/symbol.png`, ali della lama comprese), in coordinate
+  /// relative al box del logo (0,0 = angolo in alto a sinistra del box,
+  /// 1,1 = in basso a destra).
+  ///
+  /// Non è una V generica disegnata a mano: sono 190 punti ricampionati a
+  /// intervalli regolari lungo il perimetro reale della sagoma (estratta
+  /// una volta sola con un contour-tracing offline sull'immagine sorgente),
+  /// quindi le scintille disegnano davvero il profilo della lama — ali
+  /// comprese — invece di una semplice V a due segmenti dritti.
   List<Offset> _generateVOutlinePoints() {
-    const samplesPerStroke = 40;
-    final points = <Offset>[];
-
-    for (var i = 0; i <= samplesPerStroke; i++) {
-      final t = i / samplesPerStroke;
-      points.add(Offset.lerp(const Offset(0.28, 0.08), const Offset(0.5, 0.92), t)!);
-    }
-    for (var i = 0; i <= samplesPerStroke; i++) {
-      final t = i / samplesPerStroke;
-      points.add(Offset.lerp(const Offset(0.72, 0.08), const Offset(0.5, 0.92), t)!);
-    }
-    return points;
+    return const [
+      Offset(0.5015, 1.0000), Offset(0.4835, 0.9740), Offset(0.4875, 0.9569),
+      Offset(0.4970, 0.9401), Offset(0.4875, 0.9133), Offset(0.4956, 0.9228),
+      Offset(0.4978, 0.8974), Offset(0.4963, 0.8631), Offset(0.4845, 0.8330),
+      Offset(0.4713, 0.8034), Offset(0.4592, 0.7733), Offset(0.4462, 0.7437),
+      Offset(0.4323, 0.7144), Offset(0.4212, 0.6908), Offset(0.4073, 0.6615),
+      Offset(0.3947, 0.6317), Offset(0.3814, 0.6021), Offset(0.3685, 0.5724),
+      Offset(0.3555, 0.5427), Offset(0.3426, 0.5130), Offset(0.3284, 0.4838),
+      Offset(0.3152, 0.4542), Offset(0.3017, 0.4248), Offset(0.2872, 0.3957),
+      Offset(0.2739, 0.3661), Offset(0.2597, 0.3369), Offset(0.2447, 0.3081),
+      Offset(0.2297, 0.2792), Offset(0.2150, 0.2502), Offset(0.2003, 0.2212),
+      Offset(0.1959, 0.2186), Offset(0.2091, 0.2482), Offset(0.1949, 0.2255),
+      Offset(0.1799, 0.1966), Offset(0.1551, 0.1725), Offset(0.1302, 0.1485),
+      Offset(0.1079, 0.1225), Offset(0.0862, 0.0972), Offset(0.0633, 0.0715),
+      Offset(0.0395, 0.0462), Offset(0.0279, 0.0377), Offset(0.0454, 0.0648),
+      Offset(0.0623, 0.0826), Offset(0.0857, 0.1081), Offset(0.1059, 0.1349),
+      Offset(0.1105, 0.1624), Offset(0.1163, 0.1914), Offset(0.1325, 0.2198),
+      Offset(0.1473, 0.2488), Offset(0.1620, 0.2777), Offset(0.1767, 0.3067),
+      Offset(0.1844, 0.3296), Offset(0.1705, 0.3004), Offset(0.1561, 0.2712),
+      Offset(0.1404, 0.2426), Offset(0.1252, 0.2138), Offset(0.1090, 0.1855),
+      Offset(0.0928, 0.1571), Offset(0.0761, 0.1289), Offset(0.0853, 0.1477),
+      Offset(0.0993, 0.1770), Offset(0.1149, 0.2048), Offset(0.0964, 0.1943),
+      Offset(0.0825, 0.1650), Offset(0.0677, 0.1360), Offset(0.0524, 0.1073),
+      Offset(0.0383, 0.0780), Offset(0.0236, 0.0490), Offset(0.0094, 0.0198),
+      Offset(0.0096, 0.0058), Offset(0.0372, 0.0254), Offset(0.0652, 0.0440),
+      Offset(0.0938, 0.0614), Offset(0.1224, 0.0786), Offset(0.1505, 0.0971),
+      Offset(0.1785, 0.1157), Offset(0.2062, 0.1351), Offset(0.2338, 0.1547),
+      Offset(0.2614, 0.1743), Offset(0.2725, 0.2019), Offset(0.2842, 0.2309),
+      Offset(0.3063, 0.2413), Offset(0.3071, 0.2614), Offset(0.3240, 0.2779),
+      Offset(0.3142, 0.2469), Offset(0.3110, 0.2209), Offset(0.3299, 0.2466),
+      Offset(0.3432, 0.2761), Offset(0.3569, 0.3055), Offset(0.3711, 0.3290),
+      Offset(0.3896, 0.3429), Offset(0.4015, 0.3730), Offset(0.4243, 0.3937),
+      Offset(0.4273, 0.4086), Offset(0.4426, 0.4301), Offset(0.4589, 0.4559),
+      Offset(0.4698, 0.4836), Offset(0.5011, 0.4875), Offset(0.5315, 0.4765),
+      Offset(0.5376, 0.4550), Offset(0.5395, 0.4443), Offset(0.5567, 0.4341),
+      Offset(0.5770, 0.4082), Offset(0.5952, 0.3876), Offset(0.6068, 0.3574),
+      Offset(0.6201, 0.3407), Offset(0.6372, 0.3141), Offset(0.6512, 0.2848),
+      Offset(0.6642, 0.2552), Offset(0.6822, 0.2275), Offset(0.6848, 0.2436),
+      Offset(0.6750, 0.2746), Offset(0.6829, 0.2769), Offset(0.7025, 0.2507),
+      Offset(0.7200, 0.2237), Offset(0.7275, 0.1918), Offset(0.7482, 0.1678),
+      Offset(0.7763, 0.1492), Offset(0.8041, 0.1300), Offset(0.8319, 0.1109),
+      Offset(0.8599, 0.0923), Offset(0.8882, 0.0743), Offset(0.9164, 0.0561),
+      Offset(0.9444, 0.0375), Offset(0.9725, 0.0189), Offset(1.0000, 0.0008),
+      Offset(0.9867, 0.0304), Offset(0.9720, 0.0594), Offset(0.9573, 0.0883),
+      Offset(0.9426, 0.1173), Offset(0.9279, 0.1463), Offset(0.9139, 0.1756),
+      Offset(0.8989, 0.2045), Offset(0.8956, 0.1934), Offset(0.9102, 0.1643),
+      Offset(0.9246, 0.1353), Offset(0.9293, 0.1216), Offset(0.9116, 0.1494),
+      Offset(0.8955, 0.1778), Offset(0.8794, 0.2063), Offset(0.8645, 0.2352),
+      Offset(0.8498, 0.2641), Offset(0.8351, 0.2931), Offset(0.8214, 0.3225),
+      Offset(0.8218, 0.3132), Offset(0.8361, 0.2840), Offset(0.8511, 0.2552),
+      Offset(0.8651, 0.2259), Offset(0.8811, 0.1974), Offset(0.8962, 0.1686),
+      Offset(0.9106, 0.1403), Offset(0.8968, 0.1408), Offset(0.9019, 0.1244),
+      Offset(0.9257, 0.0999), Offset(0.9455, 0.0738), Offset(0.9661, 0.0497),
+      Offset(0.9675, 0.0394), Offset(0.9447, 0.0643), Offset(0.9224, 0.0903),
+      Offset(0.8999, 0.1161), Offset(0.8767, 0.1417), Offset(0.8534, 0.1672),
+      Offset(0.8275, 0.1909), Offset(0.8043, 0.2148), Offset(0.7903, 0.2441),
+      Offset(0.7761, 0.2733), Offset(0.7603, 0.3018), Offset(0.7463, 0.3311),
+      Offset(0.7305, 0.3596), Offset(0.7172, 0.3892), Offset(0.7033, 0.4185),
+      Offset(0.6893, 0.4478), Offset(0.6760, 0.4773), Offset(0.6627, 0.5069),
+      Offset(0.6495, 0.5365), Offset(0.6362, 0.5661), Offset(0.6230, 0.5956),
+      Offset(0.6097, 0.6252), Offset(0.5965, 0.6548), Offset(0.5837, 0.6845),
+      Offset(0.5700, 0.7127), Offset(0.5567, 0.7423), Offset(0.5434, 0.7719),
+      Offset(0.5307, 0.8017), Offset(0.5178, 0.8314), Offset(0.5052, 0.8612),
+      Offset(0.5037, 0.8955), Offset(0.5037, 0.9304), Offset(0.5070, 0.9618),
+      Offset(0.5175, 0.9716),
+    ];
   }
 
   /// Un punto casuale lungo il perimetro dello schermo (leggermente fuori

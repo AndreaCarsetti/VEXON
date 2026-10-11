@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Palette colori ufficiale VEXON — estratta dal logo e completata
 /// con colori semantici per stati hardware/gioco.
@@ -46,10 +47,10 @@ class VexonColors {
           onSurface: textPrimary,
         ),
         cardColor: surface,
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: textPrimary),
-          bodyMedium: TextStyle(color: textPrimary),
-          bodySmall: TextStyle(color: textSecondary),
-        ),
+        // Rajdhani ovunque di default (vedi VexonTypography): qualsiasi
+        // Text() senza uno style esplicito eredita comunque il linguaggio
+        // tipografico corretto, invece di ricadere sul font di sistema.
+        textTheme: GoogleFonts.rajdhaniTextTheme(ThemeData(brightness: Brightness.dark).textTheme)
+            .apply(bodyColor: textPrimary, displayColor: textPrimary),
       );
 }

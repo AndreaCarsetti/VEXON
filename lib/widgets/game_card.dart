@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/game.dart';
 import '../theme/vexon_colors.dart';
+import '../theme/vexon_typography.dart';
 import 'hud_corner_brackets.dart';
 
 class GameCard extends StatefulWidget {
@@ -105,11 +106,7 @@ class _GameCardState extends State<GameCard> {
                           widget.game.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: VexonColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: VexonTypography.title(),
                         ),
                       ),
                     ],

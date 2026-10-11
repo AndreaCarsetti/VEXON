@@ -10,8 +10,8 @@ import 'dart:io';
 /// 2. **Abbassa la priorità** (non chiude, non sospende) di una lista
 ///    ristretta e esplicita di app di sincronizzazione/background note
 ///    (vedi [_deprioritizeList]) — mai processi di sistema, mai app di
-///    comunicazione che potresti voler usare durante il gioco (Discord,
-///    browser, client email...), escluse di proposito.
+///    comunicazione che potresti voler usare durante il gioco (browser,
+///    client email...), escluse di proposito.
 ///
 /// NON fa (di proposito, per sicurezza):
 /// - non chiude né sospende nessun processo (rischio di perdita dati)
